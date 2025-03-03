@@ -11,8 +11,7 @@ const path = require('path');
 
 const app = express();
 app.use(bodyParser.json());
-
-app.use(express.static('public'));
+app.use(express.static('public')); // Serve frontend files
 
 // --- File Upload Configuration --- //
 const storage = multer.diskStorage({
@@ -33,14 +32,14 @@ const upload = multer({ storage });
 const downloadTokens = {};
 
 // --- Generate Secure Download Token --- //
-function generateDownloadToken(orderId, filePath) {
+function generateDownloadToken(orderId, fileUrl) {
   const token = crypto.randomBytes(16).toString('hex');
   downloadTokens[token] = {
     orderId,
-    filePath,
+    fileUrl,
     // Link valid for 24 hours
     expires: Date.now() + (24 * 60 * 60 * 1000),
-    downloadsLeft: 3, // Example: limit to 3 downloads
+    downloadsLeft: 3, // Limit to 3 downloads
   };
   return token;
 }
@@ -61,22 +60,51 @@ app.get('/download/:token', (req, res) => {
   // Decrement available downloads
   tokenData.downloadsLeft--;
 
-  // Send the file to the customer
-  res.download(path.resolve(tokenData.filePath));
+  // If fileUrl starts with http, redirect; otherwise, serve as a local file.
+  if (tokenData.fileUrl.startsWith('http')) {
+    return res.redirect(tokenData.fileUrl);
+  } else {
+    return res.download(path.resolve(tokenData.fileUrl));
+  }
 });
 
 // --- Shopify Order Webhook --- //
-// Make sure to register this webhook in your Shopify admin
+// Register this webhook in your Shopify admin.
 app.post('/webhook/order-created', async (req, res) => {
   const order = req.body;
   console.log('Received new order:', order.id);
 
-  // For each order, determine the corresponding digital file.
-  // This sample assumes a simple mapping; replace with your business logic.
-  const filePath = 'uploads/sample-file.png';
+  // Assume the order has a line item and its product ID is used to fetch metafields.
+  const digitalProduct = order.line_items && order.line_items[0];
+  let fileUrl = null;
+  if (digitalProduct) {
+    const productId = digitalProduct.product_id;
+    try {
+      const metafieldRes = await axios.get(`https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/products/${productId}/metafields.json`, {
+        headers: {
+          'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD,
+          'Content-Type': 'application/json'
+        }
+      });
+      const metafields = metafieldRes.data.metafields;
+      const digitalFileField = metafields.find(field =>
+        field.namespace === 'digital_download' && field.key === 'digital_file'
+      );
+      if (digitalFileField) {
+        fileUrl = digitalFileField.value;
+      }
+    } catch (err) {
+      console.error("Error fetching metafields:", err.response?.data || err.message);
+    }
+  }
 
-  // Generate a secure download token
-  const token = generateDownloadToken(order.id, filePath);
+  if (!fileUrl) {
+    console.error("No digital file found for order", order.id);
+    return res.sendStatus(500);
+  }
+
+  // Generate secure download token using the actual fileUrl.
+  const token = generateDownloadToken(order.id, fileUrl);
   const downloadLink = `${process.env.APP_BASE_URL}/download/${token}`;
 
   // --- Send Email Notification --- //
@@ -107,7 +135,7 @@ app.post('/webhook/order-created', async (req, res) => {
 });
 
 // --- Admin: List Uploaded Files --- //
-// This can serve as your standalone admin panel endpoint.
+// Lists files in the "uploads" directory.
 app.get('/admin/uploads', (req, res) => {
   fs.readdir('uploads/', (err, files) => {
     if (err) return res.status(500).json({ error: 'Error reading files' });
@@ -115,38 +143,52 @@ app.get('/admin/uploads', (req, res) => {
   });
 });
 
+// --- Admin: Fetch Shopify Products --- //
+app.get('/admin/products', async (req, res) => {
+  try {
+    const response = await axios.get(`https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/products.json`, {
+      headers: {
+        'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD,
+        'Content-Type': 'application/json'
+      }
+    });
+    res.json(response.data.products);
+  } catch (err) {
+    console.error("Error fetching products:", err.response?.data || err.message);
+    res.status(500).json({ error: 'Error fetching products' });
+  }
+});
+
 // --- Admin: Attach File to a Shopify Product --- //
-// This endpoint shows how to update a product with a file URL via Shopify API.
+// Updates a product metafield with the asset file URL.
 app.post('/admin/attach-file', async (req, res) => {
-    const { productId, fileUrl } = req.body;
-  
-    const url = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/products/${productId}.json`;
-  
-    try {
-      const response = await axios.put(url, {
-        product: {
-          id: productId,
-          metafields: [{
-            key: "digital_file",
-            value: fileUrl,
-            type: "string", // Updated from `value_type`
-            namespace: "digital_download"
-          }]
-        }
-      }, {
-        headers: {
-          'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD, // Use OAuth token if it's a public app
-          'Content-Type': 'application/json',
-        }
-      });
-  
-      res.json(response.data);
-    } catch (error) {
-      console.error("Error attaching file to product:", error.response?.data || error.message);
-      res.status(500).json({ error: 'Error attaching file to product' });
-    }
-  });
-  
+  const { productId, fileUrl } = req.body;
+  const url = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/products/${productId}.json`;
+
+  try {
+    const response = await axios.put(url, {
+      product: {
+        id: productId,
+        metafields: [{
+          key: "digital_file",
+          value: fileUrl,
+          type: "string",
+          namespace: "digital_download"
+        }]
+      }
+    }, {
+      headers: {
+        'X-Shopify-Access-Token': process.env.SHOPIFY_API_PASSWORD,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error attaching file to product:", error.response?.data || error.message);
+    res.status(500).json({ error: 'Error attaching file to product' });
+  }
+});
 
 // --- Start the Server --- //
 const PORT = process.env.PORT || 3000;

@@ -6,7 +6,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     section { margin-bottom: 40px; }
-    input, button { padding: 8px; font-size: 16px; }
+    input, select, button { padding: 8px; font-size: 16px; margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -22,34 +22,34 @@
     <div id="uploadResult"></div>
   </section>
 
-  <!-- Uploaded Files List -->
+  <!-- Uploaded Assets List -->
   <section id="list-section">
-    <h2>Uploaded Files</h2>
-    <button id="refreshFiles">Refresh Files List</button>
+    <h2>Uploaded Assets</h2>
+    <button id="refreshFiles">Refresh Assets List</button>
     <ul id="filesList"></ul>
   </section>
 
-  <!-- Attach File to Shopify Product -->
+  <!-- Attach Asset to Shopify Product -->
   <section id="attach-section">
-    <h2>Attach File to Shopify Product</h2>
+    <h2>Attach Asset to Product</h2>
     <form id="attachForm">
       <label>
-        Product ID: 
-        <input type="text" id="productId" required />
+        Product:
+        <select id="productSelect" required></select>
       </label>
       <br/><br/>
       <label>
-        File URL: 
-        <input type="text" id="fileUrl" required />
+        Asset:
+        <select id="assetSelect" required></select>
       </label>
       <br/><br/>
-      <button type="submit">Attach File</button>
+      <button type="submit">Attach Asset</button>
     </form>
     <div id="attachResult"></div>
   </section>
 
   <script>
-    // Handle file upload
+    // --- File Upload --- //
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const fileInput = document.getElementById('fileInput');
@@ -61,37 +61,65 @@
         const response = await fetch('/upload', { method: 'POST', body: formData });
         const data = await response.json();
         document.getElementById('uploadResult').innerText = data.message;
-        loadFiles(); // refresh list after upload
+        loadAssets(); // refresh assets list after upload
       } catch (err) {
         console.error(err);
         alert('Error uploading file.');
       }
     });
 
-    // Fetch and display list of uploaded files
-    async function loadFiles() {
+    // --- Load Assets --- //
+    async function loadAssets() {
       try {
         const response = await fetch('/admin/uploads');
         const data = await response.json();
         const filesList = document.getElementById('filesList');
+        const assetSelect = document.getElementById('assetSelect');
         filesList.innerHTML = '';
+        assetSelect.innerHTML = '<option value="">-- Select an asset --</option>';
         data.files.forEach(file => {
           const li = document.createElement('li');
           li.innerText = file;
           filesList.appendChild(li);
+          const opt = document.createElement('option');
+          opt.value = 'uploads/' + file;
+          opt.text = file;
+          assetSelect.appendChild(opt);
         });
       } catch (err) {
         console.error(err);
-        alert('Error fetching files.');
+        alert('Error fetching assets.');
       }
     }
-    document.getElementById('refreshFiles').addEventListener('click', loadFiles);
+    document.getElementById('refreshFiles').addEventListener('click', loadAssets);
 
-    // Handle attaching a file to a Shopify product
+    // --- Load Products --- //
+    async function loadProducts() {
+      try {
+        const response = await fetch('/admin/products');
+        const products = await response.json();
+        const productSelect = document.getElementById('productSelect');
+        productSelect.innerHTML = '<option value="">-- Select a product --</option>';
+        products.forEach(product => {
+          const opt = document.createElement('option');
+          opt.value = product.id;
+          opt.text = product.title;
+          productSelect.appendChild(opt);
+        });
+      } catch (err) {
+        console.error(err);
+        alert('Error fetching products.');
+      }
+    }
+
+    // --- Attach Asset to Product --- //
     document.getElementById('attachForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const productId = document.getElementById('productId').value;
-      const fileUrl = document.getElementById('fileUrl').value;
+      const productId = document.getElementById('productSelect').value;
+      const fileUrl = document.getElementById('assetSelect').value;
+      if (!productId || !fileUrl) {
+        return alert('Please select both a product and an asset.');
+      }
       try {
         const response = await fetch('/admin/attach-file', {
           method: 'POST',
@@ -99,16 +127,17 @@
           body: JSON.stringify({ productId, fileUrl })
         });
         const data = await response.json();
-        document.getElementById('attachResult').innerText = 'File attached successfully!';
+        document.getElementById('attachResult').innerText = 'Asset attached successfully!';
         console.log(data);
       } catch (err) {
         console.error(err);
-        document.getElementById('attachResult').innerText = 'Error attaching file.';
+        document.getElementById('attachResult').innerText = 'Error attaching asset.';
       }
     });
 
-    // Load files when the page loads
-    loadFiles();
+    // Initialize page: load assets and products
+    loadAssets();
+    loadProducts();
   </script>
 </body>
 </html>
