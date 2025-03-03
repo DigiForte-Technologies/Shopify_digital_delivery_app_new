@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shopify Digital Downloads Admin</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    section { margin-bottom: 40px; }
+    input, button { padding: 8px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Shopify Digital Downloads Admin</h1>
+
+  <!-- File Upload Section -->
+  <section id="upload-section">
+    <h2>Upload Digital File</h2>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" name="file" required />
+      <button type="submit">Upload File</button>
+    </form>
+    <div id="uploadResult"></div>
+  </section>
+
+  <!-- Uploaded Files List -->
+  <section id="list-section">
+    <h2>Uploaded Files</h2>
+    <button id="refreshFiles">Refresh Files List</button>
+    <ul id="filesList"></ul>
+  </section>
+
+  <!-- Attach File to Shopify Product -->
+  <section id="attach-section">
+    <h2>Attach File to Shopify Product</h2>
+    <form id="attachForm">
+      <label>
+        Product ID: 
+        <input type="text" id="productId" required />
+      </label>
+      <br/><br/>
+      <label>
+        File URL: 
+        <input type="text" id="fileUrl" required />
+      </label>
+      <br/><br/>
+      <button type="submit">Attach File</button>
+    </form>
+    <div id="attachResult"></div>
+  </section>
+
+  <script>
+    // Handle file upload
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput.files.length === 0) return alert('Please select a file.');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        document.getElementById('uploadResult').innerText = data.message;
+        loadFiles(); // refresh list after upload
+      } catch (err) {
+        console.error(err);
+        alert('Error uploading file.');
+      }
+    });
+
+    // Fetch and display list of uploaded files
+    async function loadFiles() {
+      try {
+        const response = await fetch('/admin/uploads');
+        const data = await response.json();
+        const filesList = document.getElementById('filesList');
+        filesList.innerHTML = '';
+        data.files.forEach(file => {
+          const li = document.createElement('li');
+          li.innerText = file;
+          filesList.appendChild(li);
+        });
+      } catch (err) {
+        console.error(err);
+        alert('Error fetching files.');
+      }
+    }
+    document.getElementById('refreshFiles').addEventListener('click', loadFiles);
+
+    // Handle attaching a file to a Shopify product
+    document.getElementById('attachForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const productId = document.getElementById('productId').value;
+      const fileUrl = document.getElementById('fileUrl').value;
+      try {
+        const response = await fetch('/admin/attach-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId, fileUrl })
+        });
+        const data = await response.json();
+        document.getElementById('attachResult').innerText = 'File attached successfully!';
+        console.log(data);
+      } catch (err) {
+        console.error(err);
+        document.getElementById('attachResult').innerText = 'Error attaching file.';
+      }
+    });
+
+    // Load files when the page loads
+    loadFiles();
+  </script>
+</body>
+</html>
