@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Email Editor</title>
+  <script src="https://editor.unlayer.com/embed.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #editor { height: 600px; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Email Editor</h1>
+  <div id="editor"></div>
+  <button id="saveBtn">Save Template</button>
+
+  <script>
+    // Initialize the Unlayer editor
+    unlayer.init({
+      id: 'editor',
+      displayMode: 'email'
+    });
+
+    // Load existing template from server
+    fetch('/admin/settings/email-template', {
+      headers: { 'Authorization': 'Basic ' + btoa(prompt("Enter your admin credentials (username:password):")) }
+    })
+      .then(res => res.json())
+      .then(data => {
+         if (data.template) {
+            unlayer.loadDesign(data.template);
+         }
+      });
+
+    // Save button handler
+    document.getElementById('saveBtn').addEventListener('click', function() {
+      unlayer.exportHtml(function(data) {
+        const { design, html } = data;
+        fetch('/admin/settings/email-template', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + btoa(prompt("Enter your admin credentials (username:password):"))
+          },
+          body: JSON.stringify({ design, html })
+        })
+        .then(response => response.json())
+        .then(data => {
+          alert('Template saved!');
+        });
+      });
+    });
+  </script>
+</body>
+</html>
