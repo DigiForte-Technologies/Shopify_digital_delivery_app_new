@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+  <script>
+    async function loadStats() {
+      try {
+        const tenantResponse = await fetch('/admin/api/tenant');
+        const tenantData = await tenantResponse.json();
+        document.getElementById('tenantUsername').innerText = tenantData.tenant.username;
+        document.getElementById('storeUrl').innerText = tenantData.tenant.shopify_store_url;
+        const statsResponse = await fetch('/admin/api/stats');
+        const stats = await statsResponse.json();
+        document.getElementById('stats').innerText = `Emails sent today: ${stats.emails_sent}, Orders served today: ${stats.orders_served}`;
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    window.onload = loadStats;
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Shopify Digital Downloads Admin</h1>
+    <nav>
+      <a href="/admin/home">Home</a>
+      <a href="/admin/assets">Assets</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/email-editor">Email Template</a>
+      <a href="/admin/smtp">SMTP Settings</a>
+      <a href="/admin/orders">Orders</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <div class="container">
+    <h2>Welcome, <span id="tenantUsername"></span></h2>
+    <p>Your Shopify Store URL: <span id="storeUrl"></span></p>
+    <div id="stats"></div>
+  </div>
+  <footer>
+    &copy; 2025 Shopify Digital Downloads Admin
+  </footer>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Assets - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Assets</h1>
+    <nav>
+      <a href="/admin/home">Home</a>
+      <a href="/admin/assets">Assets</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/email-editor">Email Template</a>
+      <a href="/admin/smtp">SMTP Settings</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <div class="container">
+    <h2>Upload Digital File</h2>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" name="file" required>
+      <button type="submit">Upload File</button>
+    </form>
+    <div id="uploadResult"></div>
+    <h2>Uploaded Assets</h2>
+    <button id="refreshFiles">Refresh Assets List</button>
+    <ul id="filesList"></ul>
+  </div>
+  <footer>
+    &copy; 2025 Shopify Digital Downloads Admin
+  </footer>
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput.files.length === 0) return alert('Please select a file.');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      try {
+        const response = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        document.getElementById('uploadResult').innerText = data.message;
+        loadAssets();
+      } catch (err) {
+        console.error(err);
+        alert('Error uploading file.');
+      }
+    });
+    async function loadAssets() {
+      try {
+        const response = await fetch('/api/uploads');
+        const data = await response.json();
+        const filesList = document.getElementById('filesList');
+        filesList.innerHTML = '';
+        data.files.forEach(file => {
+          const li = document.createElement('li');
+          li.innerText = file;
+          filesList.appendChild(li);
+        });
+      } catch (err) {
+        console.error(err);
+        alert('Error fetching assets.');
+      }
+    }
+    document.getElementById('refreshFiles').addEventListener('click', loadAssets);
+    loadAssets();
+  </script>
+</body>
+</html>

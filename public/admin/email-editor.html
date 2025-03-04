@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Email Template Editor - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+  <script src="https://editor.unlayer.com/embed.js"></script>
+  <style>
+    #editor { height: 600px; }
+    button { padding: 10px 20px; font-size: 16px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Email Template Editor</h1>
+    <nav>
+      <a href="/admin/home">Home</a>
+      <a href="/admin/assets">Assets</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/email-editor">Email Template</a>
+      <a href="/admin/smtp">SMTP Settings</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <div class="container">
+    <div id="editor"></div>
+    <button id="saveBtn">Save Template</button>
+  </div>
+  <footer>
+    &copy; 2025 Shopify Digital Downloads Admin
+  </footer>
+  <script>
+    // Initialize Unlayer editor
+    unlayer.init({
+      id: 'editor',
+      displayMode: 'email'
+    });
+
+    // Fallback default design in case none is fetched from the DB
+    const defaultDesign = {
+      "body": {
+        "rows": [
+          {
+            "columns": [
+              {
+                "contents": [
+                  {
+                    "type": "text",
+                    "values": {
+                      "text": "Thank you for your order."
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "values": {
+                      "text": "Download Your Digital Product",
+                      "link": "{{download_link}}",
+                      "backgroundColor": "#28a745",
+                      "textColor": "#ffffff"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    };
+
+    // Fetch the email template; if missing, load default design.
+    fetch('/admin/api/email-template')
+      .then(res => res.json())
+      .then(data => {
+         let designToLoad;
+         if (data.template && data.template.design) {
+            designToLoad = data.template.design;
+         } else {
+            designToLoad = defaultDesign;
+         }
+         unlayer.loadDesign(designToLoad);
+      })
+      .catch(err => {
+          console.error("Error loading template:", err);
+      });
+
+    document.getElementById('saveBtn').addEventListener('click', function() {
+      unlayer.exportHtml(function(data) {
+        const { design, html } = data;
+        fetch('/admin/api/email-template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ design, html })
+        })
+        .then(response => response.json())
+        .then(data => {
+          alert('Template saved!');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

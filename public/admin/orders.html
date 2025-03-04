@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Orders - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #0073e6;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    a {
+      color: #0073e6;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+  <script>
+    async function loadOrders() {
+      try {
+        const response = await fetch('/admin/api/orders');
+        const data = await response.json();
+        const ordersTable = document.getElementById('ordersTableBody');
+        ordersTable.innerHTML = "";
+        data.orders.forEach(order => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${order.order_number}</td>
+            <td>${order.ordered_date}</td>
+            <td><a href="${order.shopify_customer_url}" target="_blank">${order.customer_name}</a></td>
+            <td>${order.customer_email}</td>
+            <td>${formatDateTime(order.latest_dispatched_email)}</td>`;
+          ordersTable.appendChild(row);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    function formatDateTime(dateTimeString) {
+    if (!dateTimeString) return 'N/A';
+    const date = new Date(dateTimeString);
+    return date.toLocaleString(undefined, { 
+        weekday: 'short', 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    }
+
+    window.onload = loadOrders;
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Orders</h1>
+    <nav>
+      <a href="/admin/home">Home</a>
+      <a href="/admin/assets">Assets</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/email-editor">Email Template</a>
+      <a href="/admin/smtp">SMTP Settings</a>
+      <a href="/admin/orders">Orders</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <div class="container">
+    <h2>Your Orders</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Ordered Date</th>
+          <th>Customer</th>
+          <th>Email</th>
+          <th>Latest Dispatched Email</th>
+        </tr>
+      </thead>
+      <tbody id="ordersTableBody"></tbody>
+    </table>
+  </div>
+  <footer>
+    &copy; 2025 Shopify Digital Downloads Admin
+  </footer>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SMTP Settings - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>SMTP Settings</h1>
+    <nav>
+      <a href="/admin/home">Home</a>
+      <a href="/admin/assets">Assets</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/email-editor">Email Template</a>
+      <a href="/admin/smtp">SMTP Settings</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </header>
+  <div class="container">
+    <h2>Update SMTP Settings</h2>
+    <form id="smtpForm">
+      <label>Host: <input type="text" name="host" id="host" required></label><br><br>
+      <label>Port: <input type="number" name="port" id="port" required></label><br><br>
+      <label>User: <input type="text" name="user" id="user" required></label><br><br>
+      <label>Password: <input type="password" name="pass" id="pass" required></label><br><br>
+      <button type="submit">Save SMTP Settings</button>
+    </form>
+    <div id="smtpResult"></div>
+  </div>
+  <footer>
+    &copy; 2025 Shopify Digital Downloads Admin
+  </footer>
+  <script>
+    fetch('/admin/api/smtp')
+      .then(res => res.json())
+      .then(data => {
+        if (data.smtp) {
+          document.getElementById('host').value = data.smtp.host;
+          document.getElementById('port').value = data.smtp.port;
+          document.getElementById('user').value = data.smtp.user;
+          document.getElementById('pass').value = data.smtp.pass;
+        }
+      });
+    document.getElementById('smtpForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const host = document.getElementById('host').value;
+      const port = document.getElementById('port').value;
+      const user = document.getElementById('user').value;
+      const pass = document.getElementById('pass').value;
+      const response = await fetch('/admin/api/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, port, user, pass })
+      });
+      const result = await response.json();
+      document.getElementById('smtpResult').innerText = result.message;
+    });
+  </script>
+</body>
+</html>

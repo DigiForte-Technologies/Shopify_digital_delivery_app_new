@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Up - Shopify Digital Downloads Admin</title>
+  <link rel="stylesheet" type="text/css" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Sign Up</h1>
+  </header>
+  <div class="container">
+    <form action="/signup" method="POST">
+      <label>Username: <input type="text" name="username" required></label><br><br>
+      <label>Password: <input type="password" name="password" required></label><br><br>
+      <label>Shopify Store URL: <input type="text" name="shopify_store_url" required placeholder="your-store.myshopify.com"></label><br><br>
+      <label>Shopify API Password: <input type="text" name="shopify_api_password" required></label><br><br>
+      <button type="submit">Sign Up</button>
+    </form>
+    <p>Already have an account? <a href="/login">Log in here</a>.</p>
+  </div>
+</body>
+</html>
