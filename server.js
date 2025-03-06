@@ -301,12 +301,17 @@ app.post('/admin/api/smtp', ensureAuthenticated, async (req, res) => {
 });
 
 // ---------- File Upload & Assets API (Protected) ---------- //
-// Files are saved under uploads/{tenantId}/
+// Use the persistent volume mount point (default: /data/uploads)
+const persistentDir = process.env.PERSISTENT_DIR || '/data/uploads';
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const tenantId = req.session.tenant.id;
-    const uploadDir = path.join('uploads', String(tenantId));
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    // Build the destination path on the persistent volume
+    const uploadDir = path.join(persistentDir, String(tenantId));
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
@@ -314,19 +319,37 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + '-' + file.originalname);
   }
 });
+
 const uploadMiddleware = multer({ storage });
+
 app.post('/api/upload', ensureAuthenticated, uploadMiddleware.single('file'), (req, res) => {
   res.json({ message: 'File uploaded successfully', file: req.file });
 });
 
+// Use the persistent volume mount point (default: /data/uploads)
+
 app.get('/api/uploads', ensureAuthenticated, (req, res) => {
   const tenantId = req.session.tenant.id;
-  const uploadDir = path.join('uploads', String(tenantId));
+  // Build the full upload directory path using the persistent volume
+  const uploadDir = path.join(persistentDir, String(tenantId));
+  console.log(`Listing files in directory: ${uploadDir}`);
+
+  // Check if the directory exists
+  if (!fs.existsSync(uploadDir)) {
+    console.log(`Directory ${uploadDir} does not exist. Returning empty file list.`);
+    return res.json({ files: [] });
+  }
+
   fs.readdir(uploadDir, (err, files) => {
-    if (err) return res.status(500).json({ error: 'Error reading files' });
+    if (err) {
+      console.error(`Error reading directory ${uploadDir}:`, err);
+      return res.status(500).json({ error: 'Error reading files', path: uploadDir });
+    }
+    console.log(`Files found in ${uploadDir}:`, files);
     res.json({ files });
   });
 });
+
 
 // ---------- Shopify Products & Attach File APIs (Protected) ----------
 app.get('/api/products', ensureAuthenticated, async (req, res) => {
@@ -350,10 +373,12 @@ app.post('/api/attach-file', ensureAuthenticated, async (req, res) => {
   try {
     const tenant = req.session.tenant;
     let cleanFileName = fileUrl;
+    // If fileUrl starts with "uploads/", remove that prefix.
     if (cleanFileName.startsWith("uploads/")) {
       cleanFileName = cleanFileName.replace(/^uploads\//, '');
     }
-    const fullPath = path.join("uploads", String(tenant.id), cleanFileName);
+    // Now build the full path using the persistentDir mount point
+    const fullPath = path.join(persistentDir, String(tenant.id), cleanFileName);
     const response = await axios.put(`https://${tenant.shopify_store_url}/admin/api/2024-01/products/${productId}.json`, {
       product: {
         id: productId,
@@ -421,16 +446,19 @@ function generateDownloadToken(orderId, fileUrl) {
 
 app.get('/download/:token', (req, res) => {
   const tokenData = downloadTokens[req.params.token];
+  console.log("Download token data:", tokenData);
   if (!tokenData) return res.status(404).send('Invalid download link.');
   if (Date.now() > tokenData.expires) return res.status(403).send('Download link expired.');
   if (tokenData.downloadsLeft <= 0) return res.status(403).send('Download limit exceeded.');
   tokenData.downloadsLeft--;
+  console.log("Serving file at:", path.resolve(tokenData.fileUrl));
   if (tokenData.fileUrl.startsWith('http')) {
     return res.redirect(tokenData.fileUrl);
   } else {
     return res.download(path.resolve(tokenData.fileUrl));
   }
 });
+
 
 // ---------- Improved Custom Order Delivery Page (Public) ----------
 app.get('/orders/:orderId', (req, res) => {
@@ -507,8 +535,9 @@ app.post('/webhook/order-created', async (req, res) => {
         const digitalFileField = metafields.find(field => field.namespace === 'digital_download' && field.key === 'digital_file');
         if (digitalFileField) {
           fileUrl = digitalFileField.value;
-          if (!fileUrl.startsWith(`uploads/${tenant.id}/`)) {
-            fileUrl = path.join("uploads", String(tenant.id), fileUrl);
+          // If fileUrl is not already an absolute path starting with our persistentDir, then prepend it.
+          if (!fileUrl.startsWith(persistentDir)) {
+            fileUrl = path.join(persistentDir, String(tenant.id), fileUrl);
           }
         }
       } catch (err) {
