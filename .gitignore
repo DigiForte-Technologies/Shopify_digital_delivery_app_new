@@ -73,6 +73,7 @@ node_modules/*
 
 # dotenv environment variables file
 .env
+.env2
 .env.test
 .env.production
 
