@@ -61,10 +61,11 @@
         const data = await response.json();
         const assetSelect = document.getElementById('assetSelect');
         assetSelect.innerHTML = '<option value="">-- Select an asset --</option>';
-        data.files.forEach(file => {
+        data.files.forEach(asset => {
           const opt = document.createElement('option');
-          opt.value = 'uploads/' + file;
-          opt.text = file;
+          // Use asset.s3_key as the value and display it
+          opt.value = asset.s3_key;
+          opt.text = asset.s3_key;
           assetSelect.appendChild(opt);
         });
       } catch (err) {
@@ -75,15 +76,15 @@
     document.getElementById('attachForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const productId = document.getElementById('productSelect').value;
-      const fileUrl = document.getElementById('assetSelect').value;
-      if (!productId || !fileUrl) {
+      const assetKey = document.getElementById('assetSelect').value;
+      if (!productId || !assetKey) {
         return alert('Please select both a product and an asset.');
       }
       try {
         const response = await fetch('/api/attach-file', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productId, fileUrl })
+          body: JSON.stringify({ productId, fileUrl: assetKey })
         });
         const data = await response.json();
         document.getElementById('attachResult').innerText = 'Asset attached successfully!';

@@ -32,6 +32,7 @@
     &copy; 2025 Shopify Digital Downloads Admin
   </footer>
   <script>
+    // Handle file upload
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const fileInput = document.getElementById('fileInput');
@@ -48,20 +49,42 @@
         alert('Error uploading file.');
       }
     });
+
+    // Load and display assets
     async function loadAssets() {
       try {
         const response = await fetch('/api/uploads');
         const data = await response.json();
         const filesList = document.getElementById('filesList');
         filesList.innerHTML = '';
-        data.files.forEach(file => {
+        data.files.forEach(asset => {
           const li = document.createElement('li');
-          li.innerText = file;
+          li.className = 'file-item';
+          li.innerHTML = `
+            <span>${asset.s3_key}</span>
+            - <a href="/secure-file?key=${encodeURIComponent(asset.s3_key)}" target="_blank">Secure Download</a>
+            - <button onclick="deleteAsset('${asset.s3_key}')">Delete</button>
+          `;
           filesList.appendChild(li);
         });
       } catch (err) {
         console.error(err);
         alert('Error fetching assets.');
+      }
+    }
+
+    // Delete asset
+    async function deleteAsset(s3Key) {
+      if (confirm('Are you sure you want to delete this asset?')) {
+        try {
+          const response = await fetch('/api/delete-asset?s3_key=' + encodeURIComponent(s3Key), { method: 'DELETE' });
+          const data = await response.json();
+          alert(data.message);
+          loadAssets();
+        } catch (err) {
+          console.error(err);
+          alert('Error deleting asset.');
+        }
       }
     }
     document.getElementById('refreshFiles').addEventListener('click', loadAssets);
